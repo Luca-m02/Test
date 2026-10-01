@@ -35,7 +35,7 @@ class C2G_parser:
 
         input_batch_time_index = input_batch.index
         # prepare input and output batch
-        for start in range(0,len(input_batch)-self.window_len+1,self.window_len):
+        for start in range(0,len(input_batch)-self.window_len+1,self.window_stride):
             end = start + self.window_len - 1
             input_window = input_batch[input_batch_time_index[start]:input_batch_time_index[end]].values
             output_window = output_batch[input_batch_time_index[start]:input_batch_time_index[end]].values

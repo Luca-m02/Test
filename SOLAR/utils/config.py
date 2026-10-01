@@ -7,7 +7,7 @@ def get_args():
 #     parser.add_argument('--data', default='UKDALE', type=str)
     parser.add_argument('--model_name', default='CRNN', type=str)
     parser.add_argument('--experiment_name', default='NILM', help='Name of the experiment')
-    parser.add_argument('--data_path', default='data_test', type=str)
+    parser.add_argument('--data_path', default='./data', type=str)
     parser.add_argument('--fuso', default='Europe/Rome', type=str)
     parser.add_argument('--ckpt_path', default='./ckpts', type=str)
     parser.add_argument('--log_path', default='./logs', type=str)
@@ -19,7 +19,7 @@ def get_args():
     parser.add_argument('--window_stride', type=int, default=1)
     parser.add_argument('--window_len', type=int, default=100)
     parser.add_argument('--resample_period', type=int, default=5, help="seconds to resample C2G data's")
-    parser.add_argument('--n_epochs', default=3, type=int)
+    parser.add_argument('--n_epochs', default=150, type=int)
     parser.add_argument('--learning_rate', default=1e-4, type=float)
     parser.add_argument('--early_stopping', default=10, type=int)
 

@@ -10,6 +10,9 @@ from data.C2G_dataloader import C2GDataloader
 from experiment import train, test
 import numpy as np
 import json
+import inspect
+import onnxruntime as ort
+import sys
 
 if __name__ == '__main__':
     ##### Args #####
@@ -32,19 +35,24 @@ if __name__ == '__main__':
     path_ckpts = os.path.join(path_ckpts, 'model.pth')
 
     logging.basicConfig(
-        filename=os.path.join(path_logs,'log.txt'),
-        filemode='w',  # 'a' per aggiungere in fondo, 'w' per sovrascrivere
+        handlers=[
+            # Handler per la scrittura su File
+            logging.FileHandler(os.path.join(path_logs, 'log.txt'), mode='w'),
+            # Handler per la stampa a Terminale (stdout)
+            logging.StreamHandler(sys.stdout)
+        ],
         level=logging.DEBUG,
         format='%(asctime)s - %(levelname)s - %(message)s',
-        encoding='utf-8',
         force=True
     )
 
-
     #### Data loading #####
+    logging.debug(f"Caricando i dati da {args.data_path}")
+
     ds_parser = C2G_parser(args)
     dataloader = C2GDataloader(args, ds_parser)
     train_loader, val_loader, test_loader, x_min, x_max, y_min, y_max = dataloader.get_dataloaders()
+    logging.debug(f"Train loader length: {len(train_loader)}, Val loader length: {len(val_loader)}, Test loader length: {len(test_loader)}")
     
 
     ######### Model costruction ##############
@@ -89,7 +97,7 @@ if __name__ == '__main__':
 
     if args.model_name == 'CRNN':
         from networks import CRNNModel
-        model = CRNNModel(drop_out=args.dropout, kernel=args.kernel, num_layers=args.num_conv_layers, gru_units=args.gru_units)
+        model = CRNNModel()
     elif args.model_name == 'CNN':
         from networks import CNNModel
         model = CNNModel()
@@ -121,12 +129,16 @@ if __name__ == '__main__':
     print (path_base)
     path_onnx = path_base + '.onnx'
 
+    kwargs = {}
+    if "dynamo" in inspect.signature(torch.onnx.export).parameters:
+        kwargs["dynamo"] = False
+
     torch.onnx.export(
         model, dummy, path_onnx,
         input_names=['input'], output_names=['output'],
-        opset_version=18,
+        opset_version=13,
         do_constant_folding=True,
-        dynamo=False,
+        **kwargs,
     )
     # ---- parametri di normalizzazione ----
     with open(os.path.join(path_logs, 'norm_params.json'), 'w') as f:
@@ -142,3 +154,11 @@ if __name__ == '__main__':
     np.save(os.path.join(path_logs, 'calib_x.npy'), x_train[idx].to(torch.float32))
     del train_loader
     del test_loader
+
+    
+
+    sess = ort.InferenceSession(path_onnx, providers=["CPUExecutionProvider"])
+    with torch.no_grad():
+        y_torch = model(dummy).numpy()
+    y_onnx = sess.run(None, {"input": dummy.numpy()})[0]
+    logging.debug(f"Max difference between PyTorch and ONNX outputs: {np.abs(y_torch - y_onnx).max()}")   # deve essere ~1e-6
